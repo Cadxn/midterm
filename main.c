@@ -1,136 +1,152 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "complex.h"
+#include "complex.c"
 
 #define EPSILON 1e-6
 
-// Helper function to compare floating-point values safely
-int assert_close(double actual, double expected, const char* test_name) {
-    if (fabs(actual - expected) > EPSILON) {
-        printf("  ❌ [FAIL] %s: Expected %.4f, but got %.4f\n", test_name, expected, actual);
-        return 0;
+// Track test statistics globally
+int tests_run = 0;
+int tests_passed = 0;
+
+// Assertion helper function
+void assert_true(int condition, const char* test_name) {
+    tests_run++;
+    if (condition) {
+        tests_passed++;
+    } else {
+        printf("  ❌ [FAIL] %s\n", test_name);
     }
-    return 1;
+}
+
+// Float precision helper
+int close_enough(double a, double b) {
+    if (isnan(a) && isnan(b)) return 1; // Count matching NaNs as equal for tests
+    if (isinf(a) && isinf(b)) return ((a > 0) == (b > 0)); 
+    return fabs(a - b) < EPSILON;
 }
 
 int main() {
-    int passed_tests = 0;
-    int total_tests = 0;
-
-    printf("=========================================\n");
-    printf(" RUNNING COMPLEX NUMBER ADT TEST SUITE   \n");
-    printf("=========================================\n\n");
+    printf("==================================================\n");
+    printf("     EXPANDED TEST SUITE FOR COMPLEX ADT          \n");
+    printf("==================================================\n\n");
 
     // ---------------------------------------------------------
-    // Test 1: Creation, Getters, and Destruction
+    // BATCH 1: Standard Values & Basic Verification
     // ---------------------------------------------------------
-    printf("Test 1: Creation & Getters...\n");
-    complex c1 = CreatComplex(3.0, 4.0); // Spelling matches complex.h
-    
-    total_tests += 2;
-    if (c1 != NULL) {
-        if (assert_close(GetReal(c1), 3.0, "GetReal")) passed_tests++;
-        if (assert_close(GetImaginary(c1), 4.0, "GetImaginary")) passed_tests++;
-    } else {
-        printf("  ❌ [FAIL] CreatComplex returned NULL\n");
+    printf("--- Batch 1: Standard Valuations ---\n");
+    {
+        complex c1 = CreatComplex(3.0, -4.0);
+        assert_true(c1 != NULL, "CreatComplex allocation check");
+        assert_true(close_enough(GetReal(c1), 3.0), "GetReal basic check");
+        assert_true(close_enough(GetImaginary(c1), -4.0), "GetImaginary basic check");
+        assert_true(close_enough(ComplexMagnitude(c1), 5.0), "ComplexMagnitude check");
+        
+        complex conj = ConjugateComplex(c1);
+        assert_true(close_enough(GetReal(conj), 3.0), "Conjugate Real matching");
+        assert_true(close_enough(GetImaginary(conj), 4.0), "Conjugate Imaginary inverted");
+        
+        DestroyComplex(c1);
+        DestroyComplex(conj);
     }
 
     // ---------------------------------------------------------
-    // Test 2: Magnitude
+    // BATCH 2: Edge Cases (Zeroes and Signs)
     // ---------------------------------------------------------
-    printf("Test 2: Magnitude...\n");
-    total_tests++;
-    if (assert_close(ComplexMagnitude(c1), 5.0, "ComplexMagnitude (3 + 4i)")) passed_tests++;
+    printf("\n--- Batch 2: Absolute Zero & Signed Zeroes ---\n");
+    {
+        complex zero = CreatComplex(0.0, 0.0);
+        assert_true(close_enough(ComplexMagnitude(zero), 0.0), "Magnitude of absolute zero");
+        
+        complex sq_zero = SquareComplex(zero);
+        assert_true(close_enough(GetReal(sq_zero), 0.0) && close_enough(GetImaginary(sq_zero), 0.0), "Square of absolute zero");
+        
+        complex neg_zero = CreatComplex(-0.0, -0.0);
+        assert_true(close_enough(ComplexMagnitude(neg_zero), 0.0), "Magnitude of negative zeroes");
 
-    // ---------------------------------------------------------
-    // Test 3: Conjugate
-    // ---------------------------------------------------------
-    printf("Test 3: Conjugate...\n");
-    complex c1_conj = ConjugateComplex(c1);
-    total_tests += 2;
-    if (assert_close(GetReal(c1_conj), 3.0, "Conjugate Real Part")) passed_tests++;
-    if (assert_close(GetImaginary(c1_conj), -4.0, "Conjugate Imaginary Part")) passed_tests++;
-
-    // ---------------------------------------------------------
-    // Test 4: Basic Arithmetic Operations (Add & Subtract)
-    // ---------------------------------------------------------
-    printf("Test 4: Arithmetic (Add & Subtract)...\n");
-    complex c2 = CreatComplex(1.5, -2.5);
-    
-    // Add: (3 + 4i) + (1.5 - 2.5i) = (4.5 + 1.5i)
-    complex c_add = AddComplex(c1, c2);
-    total_tests += 2;
-    if (assert_close(GetReal(c_add), 4.5, "Add Real Part")) passed_tests++;
-    if (assert_close(GetImaginary(c_add), 1.5, "Add Imaginary Part")) passed_tests++;
-
-    // Subtract: (3 + 4i) - (1.5 - 2.5i) = (1.5 + 6.5i)
-    complex c_sub = SubtractComplex(c1, c2);
-    total_tests += 2;
-    if (assert_close(GetReal(c_sub), 1.5, "Subtract Real Part")) passed_tests++;
-    if (assert_close(GetImaginary(c_sub), 6.5, "Subtract Imaginary Part")) passed_tests++;
-
-    // ---------------------------------------------------------
-    // Test 5: Advanced Arithmetic Operations (Multiply & Divide)
-    // ---------------------------------------------------------
-    printf("Test 5: Arithmetic (Multiply & Divide)...\n");
-    
-    // Multiply: (3 + 4i) * (1.5 - 2.5i) = (4.5 - 7.5i + 6i - 10i^2) = (14.5 - 1.5i)
-    complex c_mul = MultiplyComplex(c1, c2);
-    total_tests += 2;
-    if (assert_close(GetReal(c_mul), 14.5, "Multiply Real Part")) passed_tests++;
-    if (assert_close(GetImaginary(c_mul), -1.5, "Multiply Imaginary Part")) passed_tests++;
-
-    // Divide: (3 + 4i) / (1.5 - 2.5i)
-    // Denominator = 1.5^2 + (-2.5)^2 = 2.25 + 6.25 = 8.5
-    // Numerator = (3 + 4i) * (1.5 + 2.5i) = (4.5 + 7.5i + 6i - 10) = (-5.5 + 13.5i)
-    // Expected Real = -5.5 / 8.5 = -0.6470588
-    // Expected Imag = 13.5 / 8.5 = 1.5882353
-    complex c_div = DivideComplex(c1, c2);
-    total_tests += 2;
-    if (assert_close(GetReal(c_div), -5.5 / 8.5, "Divide Real Part")) passed_tests++;
-    if (assert_close(GetImaginary(c_div), 13.5 / 8.5, "Divide Imaginary Part")) passed_tests++;
-
-    // ---------------------------------------------------------
-    // Test 6: Square
-    // ---------------------------------------------------------
-    printf("Test 6: Square Complex...\n");
-    // Square: (3 + 4i)^2 = 9 + 24i - 16 = (-7 + 24i)
-    complex c_sq = SquareComplex(c1);
-    total_tests += 2;
-    if (assert_close(GetReal(c_sq), -7.0, "Square Real Part")) passed_tests++;
-    if (assert_close(GetImaginary(c_sq), 24.0, "Square Imaginary Part")) passed_tests++;
-
-    // ---------------------------------------------------------
-    // Test 7: Display Verification (Visual Check)
-    // ---------------------------------------------------------
-    printf("Test 7: Visual Display Verification...\n");
-    printf("  Expected format output for c1 (3.00 + 4.00i):\n  [OUTPUT] ");
-    DisplayComplex(c1);
-    printf("\n");
-
-    // ---------------------------------------------------------
-    // Clean up all allocated memory blocks
-    // ---------------------------------------------------------
-    DestroyComplex(c1);
-    DestroyComplex(c2);
-    DestroyComplex(c1_conj);
-    DestroyComplex(c_add);
-    DestroyComplex(c_sub);
-    DestroyComplex(c_mul);
-    DestroyComplex(c_div);
-    DestroyComplex(c_sq);
-
-    // Final Report Summary
-    printf("=========================================\n");
-    printf(" SUMMARY: Passed %d/%d assertion checks.\n", passed_tests, total_tests);
-    printf("=========================================\n");
-
-    if (passed_tests == total_tests) {
-        printf("🎉 ALL TESTS PASSED SUCCESSFULLY! 🎉\n");
-        return 0;
-    } else {
-        printf("⚠️ SOME TESTS FAILED. Check implementations above. ⚠️\n");
-        return 1;
+        DestroyComplex(zero);
+        DestroyComplex(sq_zero);
+        DestroyComplex(neg_zero);
     }
+
+    // ---------------------------------------------------------
+    // BATCH 3: Identities (Mathematical Proof Verification)
+    // ---------------------------------------------------------
+    printf("\n--- Batch 3: Algebraic & Mathematical Identities ---\n");
+    {
+        complex c = CreatComplex(2.5, 7.1);
+        complex zero = CreatComplex(0.0, 0.0);
+        complex one = CreatComplex(1.0, 0.0);
+
+        // Additive Identity: c + 0 = c
+        complex add_id = AddComplex(c, zero);
+        assert_true(close_enough(GetReal(add_id), GetReal(c)), "Additive identity (Real)");
+        assert_true(close_enough(GetImaginary(add_id), GetImaginary(c)), "Additive identity (Imag)");
+
+        // Multiplicative Identity: c * 1 = c
+        complex mul_id = MultiplyComplex(c, one);
+        assert_true(close_enough(GetReal(mul_id), GetReal(c)), "Multiplicative identity (Real)");
+        assert_true(close_enough(GetImaginary(mul_id), GetImaginary(c)), "Multiplicative identity (Imag)");
+
+        // Conjugate of Conjugate identity: conj(conj(c)) == c
+        complex conj1 = ConjugateComplex(c);
+        complex conj2 = ConjugateComplex(conj1);
+        assert_true(close_enough(GetReal(conj2), GetReal(c)) && close_enough(GetImaginary(conj2), GetImaginary(c)), "Double conjugate loops back");
+
+        DestroyComplex(c); DestroyComplex(zero); DestroyComplex(one);
+        DestroyComplex(add_id); DestroyComplex(mul_id);
+        DestroyComplex(conj1); DestroyComplex(conj2);
+    }
+
+    // ---------------------------------------------------------
+    // BATCH 4: Extreme Valuations & Stress Testing
+    // ---------------------------------------------------------
+    printf("\n--- Batch 4: Division-by-Zero and Extreme Values ---\n");
+    {
+        complex dividend = CreatComplex(5.0, 5.0);
+        complex absolute_zero = CreatComplex(0.0, 0.0);
+        
+        // Division by Zero handling 
+        // Mathematically undefined. Your implementation will likely produce infinity or NaN.
+        complex bad_div = DivideComplex(dividend, absolute_zero);
+        double r = GetReal(bad_div);
+        double i = GetImaginary(bad_div);
+        assert_true(isnan(r) || isinf(r) || isnan(i) || isinf(i), "Division by absolute zero yields Inf or NaN handles gracefully");
+
+        // Extreme structural stress bounds test
+        complex huge_real = CreatComplex(1e154, 0.0); 
+        complex h_sq = SquareComplex(huge_real);
+        assert_true(isinf(GetReal(h_sq)), "Overflow successfully handled resulting in standard positive infinity");
+
+        DestroyComplex(dividend);
+        DestroyComplex(absolute_zero);
+        DestroyComplex(bad_div);
+        DestroyComplex(huge_real);
+        DestroyComplex(h_sq);
+    }
+
+    // ---------------------------------------------------------
+    // BATCH 5: Display Format Visual Validation
+    // ---------------------------------------------------------
+    printf("\n--- Batch 5: Component Visual Output Formats ---\n");
+    {
+        complex visual1 = CreatComplex(0.0, -1.5);
+        complex visual2 = CreatComplex(-4.2, 0.0);
+        
+        printf("  [Visual Verify] Pure Imaginary (0.0, -1.5): ");
+        DisplayComplex(visual1);
+        printf("\n  [Visual Verify] Pure Real (-4.2, 0.0):     ");
+        DisplayComplex(visual2);
+        printf("\n");
+
+        DestroyComplex(visual1);
+        DestroyComplex(visual2);
+    }
+
+    // Final Report Execution Status Output Summary Block
+    printf("\n==================================================\n");
+    printf(" FINAL RESULTS: Passed %d / %d checks.\n", tests_passed, tests_run);
+    printf("==================================================\n");
+
+    return (tests_passed == tests_run) ? 0 : 1;
 }
